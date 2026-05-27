@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getDbBlogs, getDoodles, saveDoodle, type Blog, type Doodle } from "@/lib/firebase";
 import {
-  lazy,
-  Suspense,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -28,8 +27,6 @@ import {
 } from "lucide-react";
 import avatar from "@/img/IMG_4029.jpg";
 import goblinLogo from "@/img/goblin.webp";
-
-const Hero3D = lazy(() => import("@/components/Hero3D"));
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -93,17 +90,6 @@ function Index() {
         id="top"
         className="relative min-h-[100svh] overflow-hidden grid-bg"
       >
-        {/* 3-D canvas — client only */}
-        <div className="absolute inset-0 z-0">
-          {mounted && (
-            <Suspense
-              fallback={<div className="absolute inset-0 bg-[#0a0a12]" />}
-            >
-              <Hero3D />
-            </Suspense>
-          )}
-        </div>
-
         {/* bottom vignette */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/50 to-transparent z-10" />
 
