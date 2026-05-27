@@ -67,7 +67,8 @@ function Index() {
   // Pick 9 random doodles once the list loads
   const wallDoodles = useMemo(() => {
     if (doodles.length === 0) return [];
-    return [...doodles].sort(() => Math.random() - 0.5).slice(0, 9);
+    const limit = typeof window !== "undefined" && window.innerWidth < 640 ? 10 : 9;
+    return [...doodles].sort(() => Math.random() - 0.5).slice(0, limit);
   }, [doodles]);
 
   useEffect(() => {
@@ -615,47 +616,54 @@ function DoodleCard({ doodle }: { doodle: Doodle }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.offsetWidth || 208;
-    const h = canvas.offsetHeight || Math.round((w * 156) / 208);
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
+    const render = () => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-    const dark = doodle.createInDarkMode as boolean;
-    ctx.fillStyle = dark ? "#141210" : "#f0ede8";
-    ctx.fillRect(0, 0, w, h);
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.offsetWidth || 600;
+      const h = canvas.offsetHeight || Math.round((w * 156) / 208);
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.scale(dpr, dpr);
 
-    const imgSrc = doodle.doodle as string;
-    if (imgSrc && typeof imgSrc === "string" && imgSrc.length > 100) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, w, h);
-        const text = doodle.text as string;
-        const pos = doodle.position as
-          | { x?: number; y?: number; rotation?: number }
-          | undefined;
-        if (text && pos) {
-          const px = ((pos.x ?? 50) / 100) * w;
-          const py = ((pos.y ?? 50) / 100) * h;
-          ctx.save();
-          ctx.translate(px, py);
-          ctx.rotate(pos.rotation ?? 0);
-          ctx.font = `bold ${Math.round(w * 0.048)}px monospace`;
-          ctx.fillStyle = dark ? "#ffffff" : "#111111";
-          ctx.strokeStyle = dark ? "#00000088" : "#ffffff88";
-          ctx.lineWidth = 3;
-          ctx.textAlign = "left";
-          ctx.strokeText(text, 0, 0);
-          ctx.fillText(text, 0, 0);
-          ctx.restore();
-        }
-      };
-      img.src = imgSrc;
-    }
+      const dark = doodle.createInDarkMode as boolean;
+      ctx.fillStyle = dark ? "#141210" : "#f0ede8";
+      ctx.fillRect(0, 0, w, h);
+
+      const imgSrc = doodle.doodle as string;
+      if (imgSrc && typeof imgSrc === "string" && imgSrc.length > 100) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, w, h);
+          const text = doodle.text as string;
+          const pos = doodle.position as
+            | { x?: number; y?: number; rotation?: number }
+            | undefined;
+          if (text && pos) {
+            const px = ((pos.x ?? 50) / 100) * w;
+            const py = ((pos.y ?? 50) / 100) * h;
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(pos.rotation ?? 0);
+            ctx.font = `bold ${Math.round(w * 0.048)}px monospace`;
+            ctx.fillStyle = dark ? "#ffffff" : "#111111";
+            ctx.strokeStyle = dark ? "#00000088" : "#ffffff88";
+            ctx.lineWidth = 3;
+            ctx.textAlign = "left";
+            ctx.strokeText(text, 0, 0);
+            ctx.fillText(text, 0, 0);
+            ctx.restore();
+          }
+        };
+        img.src = imgSrc;
+      }
+    };
+
+    // Wait one frame so the browser has laid out the canvas and offsetWidth is correct
+    const raf = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(raf);
   }, [doodle]);
 
   const title = (doodle.name as string) || "untitled";
@@ -663,7 +671,7 @@ function DoodleCard({ doodle }: { doodle: Doodle }) {
 
   return (
     <div className="w-full rounded-xl overflow-hidden bg-[#fdfaf2] p-2 pb-3 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.6)]">
-      <canvas ref={canvasRef} width={208} height={156} className="w-full block rounded" />
+      <canvas ref={canvasRef} width={600} height={450} className="w-full block rounded" />
       <div className="mt-1.5 px-1">
         <p className="text-[10px] font-mono text-neutral-700 truncate font-medium">
           {title}
