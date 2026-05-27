@@ -597,67 +597,24 @@ function seededRange(seed: string, min: number, max: number): number {
 }
 
 function DoodleCard({ doodle }: { doodle: Doodle }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const render = () => {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.offsetWidth || 600;
-      const h = canvas.offsetHeight || Math.round((w * 156) / 208);
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      ctx.scale(dpr, dpr);
-
-      const dark = doodle.createInDarkMode as boolean;
-      ctx.fillStyle = dark ? "#141210" : "#f0ede8";
-      ctx.fillRect(0, 0, w, h);
-
-      const imgSrc = doodle.doodle as string;
-      if (imgSrc && typeof imgSrc === "string" && imgSrc.length > 100) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, w, h);
-          const text = doodle.text as string;
-          const pos = doodle.position as
-            | { x?: number; y?: number; rotation?: number }
-            | undefined;
-          if (text && pos) {
-            const px = ((pos.x ?? 50) / 100) * w;
-            const py = ((pos.y ?? 50) / 100) * h;
-            ctx.save();
-            ctx.translate(px, py);
-            ctx.rotate(pos.rotation ?? 0);
-            ctx.font = `bold ${Math.round(w * 0.048)}px monospace`;
-            ctx.fillStyle = dark ? "#ffffff" : "#111111";
-            ctx.strokeStyle = dark ? "#00000088" : "#ffffff88";
-            ctx.lineWidth = 3;
-            ctx.textAlign = "left";
-            ctx.strokeText(text, 0, 0);
-            ctx.fillText(text, 0, 0);
-            ctx.restore();
-          }
-        };
-        img.src = imgSrc;
-      }
-    };
-
-    // Wait one frame so the browser has laid out the canvas and offsetWidth is correct
-    const raf = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(raf);
-  }, [doodle]);
-
   const title = (doodle.name as string) || "untitled";
   const ts = (doodle.timestamp as string) || "";
-
+  const dark = doodle.createInDarkMode as boolean;
   return (
-    <div className="w-full rounded-xl overflow-hidden bg-[#fdfaf2] p-2 pb-3 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.6)]">
-      <canvas ref={canvasRef} width={600} height={450} className="w-full block rounded" />
+    <div className="w-full rounded-xl overflow-hidden bg-[#fdfaf2] p-2 pb-3 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.6)] border border-[#e4dfd5]">
+      <div 
+        className="relative w-full rounded overflow-hidden aspect-[4/3]"
+        style={{ backgroundColor: dark ? "#1a1726" : "#f0ede8" }}
+      >
+        {doodle.doodle && (
+          <img
+            src={doodle.doodle}
+            alt={title}
+            className="w-full h-full object-cover block animate-fade-in"
+            loading="lazy"
+          />
+        )}
+      </div>
       <div className="mt-1.5 px-1">
         <p className="text-[10px] font-mono text-neutral-700 truncate font-medium">
           {title}
@@ -737,34 +694,6 @@ function DoodleLightbox({
   doodle: Doodle | null;
   onClose: () => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Render doodle whenever it changes
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !doodle) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const w = canvas.offsetWidth || 720;
-    const h = canvas.offsetHeight || Math.round((w * 9) / 16);
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.scale(dpr, dpr);
-
-    const dark = doodle.createInDarkMode as boolean;
-    ctx.fillStyle = dark ? "#1a1726" : "#f0ede8";
-    ctx.fillRect(0, 0, w, h);
-
-    const imgSrc = doodle.doodle as string;
-    if (imgSrc && typeof imgSrc === "string" && imgSrc.length > 100) {
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, w, h);
-      img.src = imgSrc;
-    }
-  }, [doodle]);
-
   // Lock scroll while open and restore position on close
   useEffect(() => {
     if (!doodle) return;
@@ -789,6 +718,7 @@ function DoodleLightbox({
   const name = (doodle.name as string) || "anonymous";
   const note = (doodle.text as string) || "";
   const ts   = (doodle.timestamp as string) || "";
+  const dark = doodle.createInDarkMode as boolean;
 
   return (
     <div
@@ -811,12 +741,15 @@ function DoodleLightbox({
           <X className="size-4" />
         </button>
 
-        {/* Canvas */}
-        <canvas
-          ref={canvasRef}
-          className="w-full block"
-          style={{ aspectRatio: "16/9" }}
-        />
+        {/* Image */}
+        {doodle.doodle && (
+          <img
+            src={doodle.doodle}
+            alt={name}
+            className="w-full block object-contain"
+            style={{ aspectRatio: "16/9", backgroundColor: dark ? "#1a1726" : "#f0ede8" }}
+          />
+        )}
 
         {/* Info bar */}
         <div className="px-6 py-5 border-t border-white/8 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
