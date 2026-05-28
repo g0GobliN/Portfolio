@@ -9,7 +9,9 @@ import {
   getDoodles,
   deleteDoodle,
   verifyAdminPasscode,
+  verifyHashedAdminPasscode,
   updateAdminPasscode,
+  sha256,
   uploadProjectImage,
   type Blog,
   type Doodle,
@@ -106,7 +108,7 @@ function AdminPage() {
     const isOk = await verifyAdminPasscode(passcode);
     if (isOk) {
       setIsAuthenticated(true);
-      localStorage.setItem("goblin_admin_auth", passcode);
+      localStorage.setItem("goblin_admin_auth", sha256(passcode));
       refreshData();
     } else {
       setAuthError("Access denied. Invalid credentials.");
@@ -116,9 +118,8 @@ function AdminPage() {
   useEffect(() => {
     const saved = localStorage.getItem("goblin_admin_auth");
     if (saved) {
-      verifyAdminPasscode(saved).then((isOk) => {
+      verifyHashedAdminPasscode(saved).then((isOk) => {
         if (isOk) {
-          setPasscode(saved);
           setIsAuthenticated(true);
           refreshData();
         } else {

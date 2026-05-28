@@ -60,7 +60,7 @@ export type Blog = {
 };
 
 
-function sha256(ascii: string): string {
+export function sha256(ascii: string): string {
   function rightRotate(value: number, amount: number) {
     return (value >>> amount) | (value << (32 - amount));
   }
@@ -209,6 +209,17 @@ export async function verifyAdminPasscode(passcode: string): Promise<boolean> {
     const hashedInput = await sha256(passcode);
     const hashedDefault = await sha256("admin");
     return hashedInput === hashedDefault;
+  }
+}
+
+export async function verifyHashedAdminPasscode(hash: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, "admin", "config");
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return false;
+    return docSnap.data().passcode === hash;
+  } catch {
+    return false;
   }
 }
 
