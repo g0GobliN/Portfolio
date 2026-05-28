@@ -11,7 +11,22 @@ import {
   orderBy
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { projects as staticProjects, type Project } from "./projects";
+
+export type Project = {
+  slug: string;
+  name: string;
+  tagline: string;
+  year: string;
+  role: string;
+  stack: string[];
+  links?: { label: string; href: string }[];
+  summary: string;
+  story?: string[];
+  highlights: string[];
+  modules?: { name: string; description: string }[];
+  challenges?: string[];
+  coverImage?: string;
+};
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "dummy-api-key-for-firestore-public",
@@ -44,20 +59,120 @@ export type Blog = {
   updatedAt?: number;
 };
 
-// Seeding logic
-export async function seedInitialProjects() {
-  try {
-    for (const p of staticProjects) {
-      const ref = doc(db, "projects", p.slug);
-      await setDoc(ref, {
-        ...p,
-        updatedAt: Date.now()
-      });
-    }
-    console.log("Firestore successfully seeded with local projects!");
-  } catch (error) {
-    console.error("Error seeding projects:", error);
+
+function sha256(ascii: string): string {
+  function rightRotate(value: number, amount: number) {
+    return (value >>> amount) | (value << (32 - amount));
   }
+  
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  const lengthProperty = 'length';
+  let i, j;
+  let result = '';
+
+  const words: number[] = [];
+  const asciiLength = ascii[lengthProperty] * 8;
+  
+  let hash = (sha256 as any).h = (sha256 as any).h || [];
+  const k = (sha256 as any).k = (sha256 as any).k || [];
+  let primeCounter = 0;
+
+  const isPrime = (n: number) => {
+    for (let factor = 2; factor * factor <= n; factor++) {
+      if (n % factor === 0) return false;
+    }
+    return true;
+  };
+
+  const getFractionalBits = (n: number) => {
+    return ((n - Math.floor(n)) * maxWord) | 0;
+  };
+
+  if (!k[0]) {
+    let candidate = 2;
+    while (primeCounter < 64) {
+      if (isPrime(candidate)) {
+        if (primeCounter < 8) {
+          hash[primeCounter] = getFractionalBits(mathPow(candidate, 1/2));
+        }
+        k[primeCounter] = getFractionalBits(mathPow(candidate, 1/3));
+        primeCounter++;
+      }
+      candidate++;
+    }
+  }
+
+  const hashCopy = hash.slice(0);
+  const asciiBytes = Array.from(new TextEncoder().encode(ascii));
+  
+  asciiBytes.push(0x80);
+  while (asciiBytes[lengthProperty] % 64 !== 56) {
+    asciiBytes.push(0);
+  }
+  
+  // 64-bit big-endian length. Since length < 2^32, high 32-bits are 0.
+  asciiBytes.push(0, 0, 0, 0);
+  for (i = 0; i < 4; i++) {
+    asciiBytes.push((asciiLength >>> (24 - i * 8)) & 0xff);
+  }
+
+  for (i = 0; i < asciiBytes[lengthProperty]; i += 4) {
+    words.push((asciiBytes[i] << 24) | (asciiBytes[i+1] << 16) | (asciiBytes[i+2] << 8) | asciiBytes[i+3]);
+  }
+
+  for (i = 0; i < words[lengthProperty]; i += 16) {
+    const w = words.slice(i, i + 16);
+    let a = hashCopy[0];
+    let b = hashCopy[1];
+    let c = hashCopy[2];
+    let d = hashCopy[3];
+    let e = hashCopy[4];
+    let f = hashCopy[5];
+    let g = hashCopy[6];
+    let hVal = hashCopy[7];
+
+    for (j = 0; j < 64; j++) {
+      if (j >= 16) {
+        const w15 = w[j - 15];
+        const s0 = rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3);
+        const w2 = w[j - 2];
+        const s1 = rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10);
+        w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
+      }
+
+      const s0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = s0 + maj;
+      const s1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = hVal + s1 + ch + k[j] + (w[j] || 0);
+
+      hVal = g;
+      g = f;
+      f = e;
+      e = (d + t1) | 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (t1 + t2) | 0;
+    }
+
+    hashCopy[0] = (hashCopy[0] + a) | 0;
+    hashCopy[1] = (hashCopy[1] + b) | 0;
+    hashCopy[2] = (hashCopy[2] + c) | 0;
+    hashCopy[3] = (hashCopy[3] + d) | 0;
+    hashCopy[4] = (hashCopy[4] + e) | 0;
+    hashCopy[5] = (hashCopy[5] + f) | 0;
+    hashCopy[6] = (hashCopy[6] + g) | 0;
+    hashCopy[7] = (hashCopy[7] + hVal) | 0;
+  }
+
+  for (i = 0; i < 8; i++) {
+    const val = hashCopy[i] >>> 0;
+    result += val.toString(16).padStart(8, '0');
+  }
+  return result;
 }
 
 // Admin passcode verification
@@ -65,22 +180,42 @@ export async function verifyAdminPasscode(passcode: string): Promise<boolean> {
   try {
     const docRef = doc(db, "admin", "config");
     const docSnap = await getDoc(docRef);
+    const hashedInput = await sha256(passcode);
+    
     if (!docSnap.exists()) {
       // Create default passcode document if it does not exist yet
-      await setDoc(docRef, { passcode: "admin" });
+      const hashedDefault = await sha256("admin");
+      await setDoc(docRef, { passcode: hashedDefault });
       return passcode === "admin";
     }
-    return docSnap.data().passcode === passcode;
+    
+    const storedPasscode = docSnap.data().passcode;
+    const isSha256 = /^[a-f0-9]{64}$/i.test(storedPasscode);
+    
+    if (isSha256) {
+      return storedPasscode === hashedInput;
+    } else {
+      // Legacy plain text comparison
+      const matches = storedPasscode === passcode;
+      if (matches) {
+        // Auto-upgrade legacy passcode to hashed version
+        await updateAdminPasscode(passcode);
+      }
+      return matches;
+    }
   } catch (error) {
     console.error("Error verifying passcode:", error);
     // If it fails (e.g. firestore permission error), fallback to "admin"
-    return passcode === "admin";
+    const hashedInput = await sha256(passcode);
+    const hashedDefault = await sha256("admin");
+    return hashedInput === hashedDefault;
   }
 }
 
 export async function updateAdminPasscode(newPasscode: string): Promise<void> {
+  const hashed = await sha256(newPasscode);
   const docRef = doc(db, "admin", "config");
-  await setDoc(docRef, { passcode: newPasscode }, { merge: true });
+  await setDoc(docRef, { passcode: hashed }, { merge: true });
 }
 
 // CRUD Projects
@@ -93,15 +228,10 @@ export async function getDbProjects(): Promise<Project[]> {
       results.push(doc.data() as Project);
     });
 
-    if (results.length === 0) {
-      // Auto-seed on first fetch if completely empty
-      await seedInitialProjects();
-      return staticProjects;
-    }
     return results;
   } catch (error) {
-    console.warn("Failed to fetch projects from Firestore, falling back to static local data:", error);
-    return staticProjects;
+    console.warn("Failed to fetch projects from Firestore:", error);
+    return [];
   }
 }
 
@@ -112,13 +242,10 @@ export async function getDbProject(slug: string): Promise<Project | null> {
     if (docSnap.exists()) {
       return docSnap.data() as Project;
     }
-    // Fallback to static projects
-    const staticProj = staticProjects.find(p => p.slug === slug);
-    return staticProj || null;
+    return null;
   } catch (error) {
-    console.warn(`Failed to fetch project ${slug} from Firestore, falling back to static local data:`, error);
-    const staticProj = staticProjects.find(p => p.slug === slug);
-    return staticProj || null;
+    console.warn(`Failed to fetch project ${slug} from Firestore:`, error);
+    return null;
   }
 }
 

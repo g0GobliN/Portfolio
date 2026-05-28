@@ -1,6 +1,5 @@
 import { createFileRoute, Link, Outlet, useMatchRoute } from "@tanstack/react-router";
-import { getDbProjects } from "@/lib/firebase";
-import { type Project } from "@/lib/projects";
+import { getDbProjects, type Project } from "@/lib/firebase";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 

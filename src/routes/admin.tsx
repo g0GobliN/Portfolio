@@ -10,12 +10,11 @@ import {
   deleteDoodle,
   verifyAdminPasscode,
   updateAdminPasscode,
-  seedInitialProjects,
   uploadProjectImage,
   type Blog,
   type Doodle,
+  type Project,
 } from "@/lib/firebase";
-import { type Project } from "@/lib/projects";
 import {
   ArrowLeft,
   Lock,
@@ -241,20 +240,7 @@ function AdminPage() {
     }
   };
 
-  const handleSeed = async () => {
-    if (!confirm("This will seed firestore with the default local projects. Proceed?")) return;
-    setLoading(true);
-    try {
-      await seedInitialProjects();
-      flash("Database seeded!");
-    } catch (err) {
-      console.error("Seed failed:", err);
-      flash("Seed failed — check your Firebase API key in .env.local (VITE_FIREBASE_API_KEY).", true);
-    }
-    await refreshData();
-  };
-
-  const handlePasscodeUpdate = async (e: React.FormEvent) => {
+const handlePasscodeUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPasscode) return;
     await updateAdminPasscode(newPasscode);
@@ -328,12 +314,6 @@ function AdminPage() {
           </div>
 
           <div className="mt-4 sm:mt-0 flex gap-2">
-            <button
-              onClick={handleSeed}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-surface text-xs font-mono text-muted-foreground hover:text-foreground transition cursor-pointer"
-            >
-              <Database className="size-3.5 text-primary" /> Seed DB
-            </button>
             <Link
               to="/"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-surface text-xs font-mono text-muted-foreground hover:text-foreground transition"

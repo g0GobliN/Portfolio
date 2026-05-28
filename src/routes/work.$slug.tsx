@@ -1,12 +1,15 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { getProject, projects, type Project } from "@/lib/projects";
+import { getDbProject, getDbProjects, type Project } from "@/lib/firebase";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 
 export const Route = createFileRoute("/work/$slug")({
-  loader: ({ params }) => {
-    const project = getProject(params.slug);
+  loader: async ({ params }) => {
+    const [project, allProjects] = await Promise.all([
+      getDbProject(params.slug),
+      getDbProjects(),
+    ]);
     if (!project) throw notFound();
-    return { project };
+    return { project, allProjects };
   },
   head: ({ loaderData }) => ({
     meta: loaderData
@@ -43,9 +46,9 @@ export const Route = createFileRoute("/work/$slug")({
 });
 
 function ProjectPage() {
-  const { project } = Route.useLoaderData() as { project: Project };
-  const idx = projects.findIndex((p) => p.slug === project.slug);
-  const next = projects[(idx + 1) % projects.length];
+  const { project, allProjects } = Route.useLoaderData() as { project: Project; allProjects: Project[] };
+  const idx = allProjects.findIndex((p) => p.slug === project.slug);
+  const next = allProjects.length > 1 ? allProjects[(idx + 1) % allProjects.length] : null;
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -190,22 +193,24 @@ function ProjectPage() {
           </aside>
         </section>
 
-        <Link
-          to="/work/$slug"
-          params={{ slug: next.slug }}
-          className="mt-20 group block rounded-2xl border border-border bg-card hover:bg-surface-2 transition p-8"
-        >
-          <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Next project →
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <div className="text-display text-4xl md:text-5xl group-hover:text-primary transition">
-              {next.name}
+        {next && (
+          <Link
+            to="/work/$slug"
+            params={{ slug: next.slug }}
+            className="mt-20 group block rounded-2xl border border-border bg-card hover:bg-surface-2 transition p-8"
+          >
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              Next project →
             </div>
-            <ArrowUpRight className="size-8 group-hover:rotate-45 transition-transform" />
-          </div>
-          <p className="mt-2 text-muted-foreground">{next.tagline}</p>
-        </Link>
+            <div className="mt-2 flex items-center justify-between">
+              <div className="text-display text-4xl md:text-5xl group-hover:text-primary transition">
+                {next.name}
+              </div>
+              <ArrowUpRight className="size-8 group-hover:rotate-45 transition-transform" />
+            </div>
+            <p className="mt-2 text-muted-foreground">{next.tagline}</p>
+          </Link>
+        )}
       </div>
     </main>
   );
